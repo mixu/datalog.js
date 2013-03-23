@@ -10,13 +10,12 @@ var edb = {
 var idb = {
   ancestor: [
     {
-      [ vari('X'), vari('Y') ], // :-
-      { parent: [ vari('X'), vari('Y') ] }
+      head: [ vari('X'), vari('Y') ], // :-
+      body: [ { parent: [ vari('X'), vari('Y') ] } ]
     },
     {
-      [ vari('X'), vari('Y') ], // :-
-      { parent: [ vari('X'), vari('Z') ] },
-      { ancestor: [ vari('Z'), vari('Y') ] }
+      head: [ vari('X'), vari('Y') ], // :-
+      body: [ { parent: [ vari('X'), vari('Z') ] }, { ancestor: [ vari('Z'), vari('Y') ] } ]
     }
   ]
 };

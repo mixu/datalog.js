@@ -101,6 +101,68 @@ exports['unification'] = {
 
 };
 
+
+exports['inference'] = {
+
+  /*
+    Graph:
+
+      /-> b \
+    a        -> d -> e
+      \-> c /
+
+    Paths:
+      (a,b), (a,c), (b,d), (c,d), (d,e)
+      (a,d), (b,e), (c,e)
+      (a,e)
+  */
+
+  'should be able to infer using the bottom up strategy': function() {
+    var edb = [
+      { edge: [ 'a', 'b' ] },
+      { edge: [ 'a', 'c' ] },
+      { edge: [ 'b', 'd' ] },
+      { edge: [ 'c', 'd' ] },
+      { edge: [ 'd', 'e' ] }
+    ];
+
+    var idb = {
+      path: [
+        {
+          head: [ 'X', 'Y'], // :-
+          body: { edge: [ 'X', 'Y' ]}
+        },
+        {
+          head: [ 'X', 'Y'], // :-
+          body: [ { path: [ 'X', 'Z' ]}, { path: [ 'Z', 'Y' ]} ],
+        }
+      ]
+    };
+
+    edb.forEach(function(fact) {
+      // apply to all idb rules
+      Object.keys(idb).forEach(function(inferPredicateName) {
+        idb[inferPredicateName]
+          .filter(function(rule) {
+            // exclude if the rule does not contain the current edb fact's predicate
+            // since it obviously cannot unify with it
+            return true;
+          })
+          .forEach(function(rule) {
+            // if you can unify the body then you can infer the head
+
+          });
+      })
+
+    });
+
+
+  }
+
+
+
+};
+
 // if this module is the script being run, then run the tests:
 if (module == require.main) {
   var mocha = require('child_process').spawn('mocha', [ '--colors', '--bail', '--ui', 'exports', '--reporter', 'spec', __filename ]);
