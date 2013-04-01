@@ -29,7 +29,7 @@ function unify(expr1, expr2, substitutions) {
   if(arguments.length == 2) {
     substitutions = {};
   }
-  console.log('substitutions', substitutions);
+  // console.log('substitutions', substitutions);
 
   if(expr1[pred].length != expr2[pred].length) {
     console.log('Expression lengths do not match');
@@ -48,7 +48,7 @@ function unify(expr1, expr2, substitutions) {
           // console.log(term1, 'becomes', term2);
           substitutions[term1] = term2;
         } else if(substitutions[term1] != term2) {
-          console.log('Cannot subtitute variable twice: ' + term1 + ' => '+ substitutions[term1]+' tried '+term2);
+          // console.log('Cannot subtitute variable twice: ' + term1 + ' => '+ substitutions[term1]+' tried '+term2);
           return false;
         }
       }
@@ -58,7 +58,7 @@ function unify(expr1, expr2, substitutions) {
           // console.log(term2, 'becomes', term1);
           substitutions[term2] = term1;
         } else if(substitutions[term2] != term1) {
-          console.log('Cannot subtitute variable twice: ' + term2 + ' => '+ substitutions[term2]+' tried '+term1);
+          // console.log('Cannot subtitute variable twice: ' + term2 + ' => '+ substitutions[term2]+' tried '+term1);
           return false;
         }
     } else if(term1 != term2) {
@@ -186,7 +186,7 @@ exports['inference'] = {
           // check if given the current substitutions, there is an existing edb fact
           // that can be matched
           var nextSubstitutions = unify(fact, head, JSON.parse(JSON.stringify(substitutions)));
-          console.log(fact, head, nextSubstitutions ? 'unifies': 'false', nextSubstitutions);
+          // console.log(fact, head, nextSubstitutions ? 'unifies': 'false', nextSubstitutions);
 
           if(!!nextSubstitutions) {
             if(remainingPredicates.length > 1) {
@@ -203,7 +203,7 @@ exports['inference'] = {
     var addFact = true, iteration = 1;
     while(addFact == true) {
       addFact = false;
-      console.log('RUN '+iteration++);
+      // console.log('RUN '+iteration++);
       // for each idb rule
       idb.forEach(function(rule) {
         // if you can unify the rule body then you can infer the rule head
@@ -269,19 +269,31 @@ exports['inference'] = {
       }
     ];
 
-    function establish(goalList, substitutions) {
+    function pretty(clause) {
+      if(Array.isArray(clause)) {
+        // body
+        return clause.map(pretty).join(' & ');
+      }
+      var name = getName(clause);
+      return name + '(' + clause[name].join(', ')+')';
+    }
+
+
+    function establish(goalList, substitutions, history) {
+      var isTop = false;
+      if(history.length == 0) {
+        isTop = true;
+        history.push('Original goal: ' + pretty(goalList));
+      }
+
       if(!Array.isArray(goalList)) {
         goalList = [ goalList ];
       }
-      if(goalList.length == 0) {
-        console.log('Goal list is empty, done!');
-        return true;
-      }
 
-      console.log('Goal list', goalList);
+//      console.log('Establishing goals: ', goalList);
       var goal = goalList[0],
           goalName = getName(goal);
-      console.log('Goal', goal);
+//      console.log('Looking for a clause with predicate:', goal);
 
       // find a edb fact with the same name
       var matched = edb.filter(function(fact) {
@@ -289,11 +301,31 @@ exports['inference'] = {
           return goalName == getName(fact);
       }).some(function(fact) {
           var nextSubstitutions = unify(fact, goal, JSON.parse(JSON.stringify(substitutions)));
-          console.log(fact, goal, nextSubstitutions ? 'unifies': 'false', nextSubstitutions);
+//          console.log(fact, goal, nextSubstitutions ? 'unifies': 'false', nextSubstitutions);
           if(!!nextSubstitutions) {
-            console.log('EDB fact unifies:', goal, fact, nextSubstitutions);
-            console.log('EDB Goal list', goalList);
-            return true;
+            // since the head unifies with the goal, recurse
+            // replace the goal with the body predicates
+
+            if(goalList.length == 1) {
+              history.push('DONE - Unified fact: '+pretty(fact)+' and final goal: '+pretty(goal));
+              console.log('\t'+history.join('\n\t'));
+              return true;
+            }
+            // create the subgoals by cloning the rest of the goals
+            var subgoals = JSON.parse(JSON.stringify(goalList.slice(1)));
+
+            subgoals = subgoals.map(function(item) {
+                  return substitute(item, nextSubstitutions);
+            });
+
+            // console.log('EDB remaining goals: '+JSON.stringify(subgoals));
+            // and try to satisfy the new goals
+            return establish(subgoals, {}, history.concat(
+              'Unified fact: '+pretty(fact)+' and goal: '+pretty(goal),
+              'OK - unification is successful, substitutions: '+JSON.stringify(nextSubstitutions),
+              'Remaining goal'+(subgoals.length > 1 ? 's' : '')+': '+pretty(subgoals)
+              )
+            );
           }
           return false;
       });
@@ -306,49 +338,63 @@ exports['inference'] = {
         }).some(function(rule) {
           // check if the rule head can be unified with the goal
           var nextSubstitutions = unify(rule.head, goal, JSON.parse(JSON.stringify(substitutions)));
-          console.log(rule.head, goal, nextSubstitutions ? 'unifies': 'false', nextSubstitutions);
+//          console.log(rule.head, goal, nextSubstitutions ? 'unifies': 'false', nextSubstitutions);
 
           if(!!nextSubstitutions) {
             // since the head unifies with the goal, recurse
             // replace the goal with the body predicates
+            // console.log('Unifying head of '+JSON.stringify(rule.head)+' => '+JSON.stringify(rule.body)+' and goal: '+JSON.stringify(goal));
+            // console.log('OK - unification is successful, substitutions: '+JSON.stringify(nextSubstitutions));
 
             // create the subgoals by cloning the rest of the goals
-            var replacedHead = JSON.parse(JSON.stringify(rule)).body.map(function(item) {
-                  return substitute(item, nextSubstitutions);
-                }),
-                subgoals = replacedHead.concat(JSON.parse(JSON.stringify(goalList.slice(1))));
+            var subgoals = JSON.parse(JSON.stringify(rule)).body
+                            .concat(JSON.parse(JSON.stringify(goalList.slice(1))));
 
-            console.log('New subgoals', util.inspect(subgoals, null, 10, true));
+            subgoals = subgoals.map(function(item) {
+                  return substitute(item, nextSubstitutions);
+            });
+
+            // console.log('New goals: '+JSON.stringify(subgoals));
             // and try to satisfy the new goals
-            return establish(subgoals, {});
+            return establish(subgoals, {}, history.concat(
+              'Unified head of '+pretty(rule.head)+' => '+pretty(rule.body)+' and goal: '+pretty(goal),
+              'OK - unification is successful, substitutions: '+JSON.stringify(nextSubstitutions),
+              'New goal'+(subgoals.length > 1 ? 's' : '')+': '+pretty(subgoals)
+              )
+            );
           }
           return false;
         });
 
-      console.log('DONE', matched);
+      // console.log('DONE', matched);
+
+      if(isTop && !matched) {
+        history.push('Failed to find any match');
+        console.log('\t'+history.join('\n\t'));
+      }
 
       return matched;
     }
 
     // edge: a, b
-    console.log('\n\nedge: a, b');
-    assert.ok(establish({ edge: [ 'a', 'b' ]}, {}));
+    console.log('\n\nEstablish edge(a, b)');
+    assert.ok(establish({ edge: [ 'a', 'b' ]}, {}, []));
 
     // edge: b, a
     console.log('\n\nedge: b, a');
-    assert.ok(!establish({ edge: [ 'b', 'a' ]}, {}));
+    assert.ok(!establish({ edge: [ 'b', 'a' ]}, {}, []));
 
     // path: a, b
     console.log('\n\npath: a, b');
-    assert.ok(establish({ path: [ 'a', 'b' ]}, {}));
+    assert.ok(establish({ path: [ 'a', 'b' ]}, {}, []));
 
     // path: a, d
     console.log('\n\npath: a, d');
-    assert.ok(establish({ path: [ 'a', 'd' ]}, {}));
+    assert.ok(establish({ path: [ 'a', 'd' ]}, {}, []));
 
     // path: a, e
     console.log('\n\npath: a, e');
-    assert.ok(establish({ path: [ 'a', 'e' ]}, {}));
+    assert.ok(establish({ path: [ 'a', 'e' ]}, {}, []));
   }
 
 };
