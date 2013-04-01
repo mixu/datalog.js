@@ -1,6 +1,6 @@
 # Datalog.js
 
-A trivial Datalog interpreter written in Javascript to learn how Datalog evaluation works.
+A trivial Datalog with top-down and bottom up evaluation written in Javascript to learn how Datalog evaluation works.
 
 Features:
 
@@ -12,7 +12,7 @@ Caveats:
 - No parser: you need to type the expressions in as JSON
 - No validation (e.g. no sanity checking on the edb or idb contents)
 - No negation or aggregate operators
-- No repeated goal detection
+- No repeated goal detection for the top-down evaluation
 - Only tested with a simple transitive closure / graph reachability problem
 
 ## Bottom-up evaluation
@@ -41,6 +41,19 @@ Example:
           body: [ { path: [ 'X', 'Z' ]}, { path: [ 'Z', 'Y' ]} ],
         }
       ];
+
+    /*
+      Graph used in the example:
+
+        /-> b \
+      a        -> d -> e
+        \-> c /
+
+      Paths:
+        (a,b), (a,c), (b,d), (c,d), (d,e)
+        (a,d), (b,e), (c,e)
+        (a,e)
+    */
 
     console.log(expand(edb, idb));
 
