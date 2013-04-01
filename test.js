@@ -1,4 +1,5 @@
-var assert = require('assert');
+var assert = require('assert'),
+    util = require('util');
 
 function termType(x) {
   // lowercase = constant
@@ -86,10 +87,6 @@ exports['unification'] = {
   },
 
   'should be able to unify a constant with a variable': function() {
-
-    // dog(foo)
-    // animal(X) :- dog(X)
-
     assert.deepEqual(unify({ dog: [ 'foo' ] }, { dog: ['X'] }), { X: 'foo' });
   },
 
@@ -234,6 +231,124 @@ exports['inference'] = {
     }
 
     console.log(edb);
+
+    assert.deepEqual(edb, [
+      { edge: [ 'a', 'b' ] },
+      { edge: [ 'a', 'c' ] },
+      { edge: [ 'b', 'd' ] },
+      { edge: [ 'c', 'd' ] },
+      { edge: [ 'd', 'e' ] },
+      { path: [ 'a', 'b' ] },
+      { path: [ 'a', 'c' ] },
+      { path: [ 'b', 'd' ] },
+      { path: [ 'c', 'd' ] },
+      { path: [ 'd', 'e' ] },
+      { path: [ 'a', 'd' ] },
+      { path: [ 'b', 'e' ] },
+      { path: [ 'c', 'e' ] },
+      { path: [ 'a', 'e' ] } ]);
+  },
+
+  'should be able to infer using a top-down strategy': function() {
+    var edb = [
+      { edge: [ 'a', 'b' ] },
+      { edge: [ 'a', 'c' ] },
+      { edge: [ 'b', 'd' ] },
+      { edge: [ 'c', 'd' ] },
+      { edge: [ 'd', 'e' ] }
+    ];
+
+    var idb = [
+      {
+        head: { path: [ 'X', 'Y'] }, // :-
+        body: [ { edge: [ 'X', 'Y' ] } ]
+      },
+      {
+        head: { path: [ 'X', 'Y'] }, // :-
+        body: [ { path: [ 'X', 'Z' ]}, { path: [ 'Z', 'Y' ]} ],
+      }
+    ];
+
+    function establish(goalList, substitutions) {
+      if(!Array.isArray(goalList)) {
+        goalList = [ goalList ];
+      }
+      if(goalList.length == 0) {
+        console.log('Goal list is empty, done!');
+        return true;
+      }
+
+      console.log('Goal list', goalList);
+      var goal = goalList[0],
+          goalName = getName(goal);
+      console.log('Goal', goal);
+
+      // find a edb fact with the same name
+      var matched = edb.filter(function(fact) {
+          // require that the predicate names match
+          return goalName == getName(fact);
+      }).some(function(fact) {
+          var nextSubstitutions = unify(fact, goal, JSON.parse(JSON.stringify(substitutions)));
+          console.log(fact, goal, nextSubstitutions ? 'unifies': 'false', nextSubstitutions);
+          if(!!nextSubstitutions) {
+            console.log('EDB fact unifies:', goal, fact, nextSubstitutions);
+            console.log('EDB Goal list', goalList);
+            return true;
+          }
+          return false;
+      });
+      if(matched) return true;
+
+      // find a idb clause with the same name in the head
+      matched = idb.filter(function(rule) {
+          // require that the head names match
+          return goalName == getName(rule.head);
+        }).some(function(rule) {
+          // check if the rule head can be unified with the goal
+          var nextSubstitutions = unify(rule.head, goal, JSON.parse(JSON.stringify(substitutions)));
+          console.log(rule.head, goal, nextSubstitutions ? 'unifies': 'false', nextSubstitutions);
+
+          if(!!nextSubstitutions) {
+            // since the head unifies with the goal, recurse
+            // replace the goal with the body predicates
+
+            // create the subgoals by cloning the rest of the goals
+            var replacedHead = JSON.parse(JSON.stringify(rule)).body.map(function(item) {
+                  return substitute(item, nextSubstitutions);
+                }),
+                subgoals = replacedHead.concat(JSON.parse(JSON.stringify(goalList.slice(1))));
+
+            console.log('New subgoals', util.inspect(subgoals, null, 10, true));
+            // and try to satisfy the new goals
+            return establish(subgoals, {});
+          }
+          return false;
+        });
+
+      console.log('DONE', matched);
+
+      return matched;
+    }
+
+    // edge: a, b
+    console.log('\n\nedge: a, b');
+    assert.ok(establish({ edge: [ 'a', 'b' ]}, {}));
+
+    // edge: b, a
+    console.log('\n\nedge: b, a');
+    assert.ok(!establish({ edge: [ 'b', 'a' ]}, {}));
+
+    // path: a, b
+    console.log('\n\npath: a, b');
+    assert.ok(establish({ path: [ 'a', 'b' ]}, {}));
+
+    // path: a, d
+    console.log('\n\npath: a, d');
+    assert.ok(establish({ path: [ 'a', 'd' ]}, {}));
+
+    // path: a, e
+    console.log('\n\npath: a, e');
+    assert.ok(establish({ path: [ 'a', 'e' ]}, {}));
   }
 
 };
