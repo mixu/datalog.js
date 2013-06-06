@@ -1,0 +1,22 @@
+{
+  "name": "datalog.js",
+  "version": "0.0.0",
+  "description": "A trivial Datalog with top-down and bottom up evaluation written in Javascript to learn how Datalog evaluation works.",
+  "main": "index.js",
+  "dependencies": {
+    "jison": "~0.4.4",
+    "lex": "~1.7.4"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/mixu/datalog.js.git"
+  },
+  "author": "Mikito Takada <mikito.takada@gmail.com> (http://mixu.net/)",
+  "license": "BSD",
+  "readmeFilename": "readme.md",
+  "gitHead": "8b74061ba9fdac6aea44a5c39db945afc55e8856"
+}
